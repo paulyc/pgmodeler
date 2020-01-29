@@ -477,10 +477,10 @@ QString XmlParser::convertCharsToXMLEntities(QString buf)
 			in_comment=false;
 
 		//Checks if the current line is a cdata start tag
-		if(!in_cdata)
+		/* if(!in_cdata)
 			in_cdata=(lin.indexOf(CdataStart) >= 0);
 		else if(in_cdata && lin.indexOf(CdataEnd) >=0)
-			in_cdata=false;
+			in_cdata=false; */
 
 		//Case the line is empty, is a xml header or a comment line and does not treat XML entities on it
 		if(lin.isEmpty() || xml_header || in_comment || in_cdata)
@@ -489,15 +489,32 @@ QString XmlParser::convertCharsToXMLEntities(QString buf)
 		{
 			QRegExp attr_regexp=QRegExp("(([a-z]+)|(\\-))+( )*(=\")"),
 					next_attr_regexp=QRegExp(QString("(\")(( )|(\\t))+(%1)").arg(attr_regexp.pattern()));
-			int attr_start=0, attr_end=0, count=0, next_attr=-1;
+			int attr_start=0, attr_end=0, count=0, next_attr=-1, cdata_start = -1, cdata_end = -1;
 			QString str_aux;
 
 			lin+="\n";
 
 			do
 			{
+				cdata_start = lin.indexOf(CdataStart);
+				cdata_end = lin.indexOf(CdataEnd, cdata_start);
+
 				//Try to extract the values using regular expressions
 				attr_start=attr_regexp.indexIn(lin, attr_start);
+
+				if((cdata_start >= 0 && attr_start > cdata_start) ||
+					 (cdata_end >= 0 && attr_start < cdata_end))
+				{
+					if(cdata_start >= 0 && cdata_end >= 0)
+						attr_start += cdata_end;
+					else if(cdata_start >= 0 && cdata_end < 0)
+						attr_start += lin.length();
+					else if(cdata_start < 0 && cdata_end >=0)
+						attr_start += cdata_end;
+
+					attr_start=attr_regexp.indexIn(lin, attr_start);
+				}
+
 				attr_start+=attr_regexp.matchedLength();
 				next_attr=next_attr_regexp.indexIn(lin, attr_start);
 
