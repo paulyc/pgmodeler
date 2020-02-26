@@ -101,6 +101,7 @@ windows {
 # MacOS X custom variables settings
 macx {
   CONFIG -= app_bundle
+  CONFIG += release
 
   # The default prefix is ./build/pgmodeler.app/Contents
   !defined(PREFIX, var):        PREFIX = /Applications/pgmodeler.app/Contents
@@ -145,14 +146,15 @@ unix:!macx {
   CONFIG += link_pkgconfig
   PKGCONFIG = libpq libxml-2.0
   PGSQL_LIB = -lpq
-  XML_LIB = -lxml2
+  XML_INC = -I/usr/local/opt/libxml2/include
+  XML_LIB = -L/usr/local/opt/libxml2/lib -lxml2
 }
 
 macx {
-  PGSQL_LIB = /Library/PostgreSQL/11/lib/libpq.dylib
-  PGSQL_INC = /Library/PostgreSQL/11/include
-  XML_INC = /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/libxml2
-  XML_LIB = /usr/lib/libxml2.dylib
+  PGSQL_LIB = /usr/local/opt/libpq/lib/libpq.dylib
+  PGSQL_INC = /usr/local/opt/libpq/include
+  XML_INC = /usr/local/opt/libxml2/include/libxml2
+  XML_LIB = /usr/local/opt/libxml2/lib/libxml2.dylib
   INCLUDEPATH += $$PGSQL_INC $$XML_INC
 }
 
