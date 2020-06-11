@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2019 - Raphael Araújo e Silva <raphael@pgmodeler.io>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,13 +18,14 @@
 
 #include "column.h"
 
-Column::Column(void)
+Column::Column()
 {
 	obj_type=ObjectType::Column;
-	not_null=seq_cycle=false;
+	not_null=seq_cycle=generated=false;
 	attributes[Attributes::Type]=QString();
 	attributes[Attributes::DefaultValue]=QString();
 	attributes[Attributes::NotNull]=QString();
+	attributes[Attributes::Generated]=QString();
 	attributes[Attributes::Table]=QString();
 	attributes[Attributes::Sequence]=QString();
 	attributes[Attributes::DeclInTable]=QString();
@@ -89,6 +90,7 @@ void Column::setIdentityType(IdentityType id_type)
 	identity_type = id_type;
 	default_value.clear();
 	sequence = nullptr;
+	generated = false;
 
 	//Identity column implies NOT NULL constraint
 	if(id_type != BaseType::Null)
@@ -98,9 +100,9 @@ void Column::setIdentityType(IdentityType id_type)
 void Column::setDefaultValue(const QString &value)
 {
 	setCodeInvalidated(default_value != value);
-	default_value=value.trimmed();
-	sequence=nullptr;
-	identity_type=BaseType::Null;
+	default_value = value.trimmed();
+	sequence = nullptr;
+	identity_type = BaseType::Null;
 }
 
 void Column::setNotNull(bool value)
@@ -109,45 +111,58 @@ void Column::setNotNull(bool value)
 	not_null=value;
 }
 
-PgSqlType Column::getType(void)
+void Column::setGenerated(bool value)
 {
-	return(type);
+	setCodeInvalidated(generated != value);
+	generated = value;
+	identity_type = BaseType::Null;
+	sequence = nullptr;
 }
 
-IdentityType Column::getIdentityType(void)
+PgSqlType Column::getType()
 {
-	return(identity_type);
+	return type;
 }
 
-bool Column::isNotNull(void)
+IdentityType Column::getIdentityType()
 {
-	return(not_null);
+	return identity_type;
 }
 
-bool Column::isIdentity(void)
+bool Column::isNotNull()
 {
-	return(identity_type != BaseType::Null);
+	return not_null;
 }
 
-QString Column::getTypeReference(void)
+bool Column::isGenerated()
+{
+	return generated;
+}
+
+bool Column::isIdentity()
+{
+	return (identity_type != BaseType::Null);
+}
+
+QString Column::getTypeReference()
 {
 	if(getParentTable())
-		return(getParentTable()->getName(true) + QString(".") + this->getName(true) + QString("%TYPE"));
+		return getParentTable()->getName(true) + QString(".") + this->getName(true) + QString("%TYPE");
 	else
-		return(QString());
+		return QString();
 }
 
-QString Column::getDefaultValue(void)
+QString Column::getDefaultValue()
 {
-	return(default_value);
+	return default_value;
 }
 
 QString Column::getOldName(bool format)
 {
 	if(format)
-		return(BaseObject::formatName(old_name));
+		return BaseObject::formatName(old_name);
 	else
-		return(old_name);
+		return old_name;
 }
 
 void Column::setParentRelationship(BaseObject *parent_rel)
@@ -158,9 +173,9 @@ void Column::setParentRelationship(BaseObject *parent_rel)
 	this->parent_rel=parent_rel;
 }
 
-BaseObject *Column::getParentRelationship(void)
+BaseObject *Column::getParentRelationship()
 {
-	return(parent_rel);
+	return parent_rel;
 }
 
 void Column::setSequence(BaseObject *seq)
@@ -181,45 +196,46 @@ void Column::setSequence(BaseObject *seq)
 
 		default_value=QString();
 		identity_type=BaseType::Null;
+		generated = false;
 	}
 
 	setCodeInvalidated(sequence != seq);
 	sequence=seq;
 }
 
-BaseObject *Column::getSequence(void)
+BaseObject *Column::getSequence()
 {
-	return(sequence);
+	return sequence;
 }
 
-bool Column::isIdSeqCycle(void)
+bool Column::isIdSeqCycle()
 {
-	return(seq_cycle);
+	return seq_cycle;
 }
 
-QString Column::getIdSeqMaxValue(void)
+QString Column::getIdSeqMaxValue()
 {
-	return(seq_max_value);
+	return seq_max_value;
 }
 
-QString Column::getIdSeqMinValue(void)
+QString Column::getIdSeqMinValue()
 {
-	return(seq_min_value);
+	return seq_min_value;
 }
 
-QString Column::getIdSeqIncrement(void)
+QString Column::getIdSeqIncrement()
 {
-	return(seq_increment);
+	return seq_increment;
 }
 
-QString Column::getIdSeqStart(void)
+QString Column::getIdSeqStart()
 {
-	return(seq_start);
+	return seq_start;
 }
 
-QString Column::getIdSeqCache(void)
+QString Column::getIdSeqCache()
 {
-	return(seq_cache);
+	return seq_cache;
 }
 
 void Column::setIdSeqAttributes(QString minv, QString maxv, QString inc, QString start, QString cache, bool cycle)
@@ -235,7 +251,7 @@ void Column::setIdSeqAttributes(QString minv, QString maxv, QString inc, QString
 QString Column::getCodeDefinition(unsigned def_type)
 {
 	QString code_def=getCachedCode(def_type, false);
-	if(!code_def.isEmpty()) return(code_def);
+	if(!code_def.isEmpty()) return code_def;
 
 	if(getParentTable())
 		attributes[Attributes::Table]=getParentTable()->getName(true);
@@ -269,9 +285,10 @@ QString Column::getCodeDefinition(unsigned def_type)
 	}
 
 	attributes[Attributes::NotNull]=(!not_null ? QString() : Attributes::True);
+	attributes[Attributes::Generated]=(generated ? Attributes::True : QString());
 	attributes[Attributes::DeclInTable]=(isDeclaredInTable() ? Attributes::True : QString());
 
-	return(BaseObject::__getCodeDefinition(def_type));
+	return BaseObject::__getCodeDefinition(def_type);
 }
 
 QString Column::getAlterDefinition(BaseObject *object)
@@ -303,7 +320,9 @@ QString Column::getAlterDefinition(BaseObject *object)
 		else
 			def_val=col->default_value;
 
-		if(this->default_value!=def_val)
+		// Generated columns can't have their default value changes after being created
+		if(!this->isGenerated() && !col->isGenerated() &&
+			 this->default_value.simplified().toLower() != def_val.simplified().toLower())
 			attribs[Attributes::DefaultValue]=(def_val.isEmpty() ? Attributes::Unset : def_val);
 
 		if(this->not_null!=col->not_null)
@@ -374,7 +393,7 @@ QString Column::getAlterDefinition(BaseObject *object)
 		alter_def = BaseObject::getAlterDefinition(this->getSchemaName(), attributes, false, true);
 		alter_def += getAlterCommentDefinition(object, attributes);
 
-		return(alter_def);
+		return alter_def;
 	}
 	catch(Exception &e)
 	{
@@ -382,7 +401,7 @@ QString Column::getAlterDefinition(BaseObject *object)
 	}
 }
 
-void Column::configureSearchAttributes(void)
+void Column::configureSearchAttributes()
 {
 	BaseObject::configureSearchAttributes();
 	search_attribs[Attributes::Type] = *type;
@@ -401,6 +420,7 @@ void Column::operator = (Column &col)
 	this->default_value=col.default_value;
 
 	this->not_null=col.not_null;
+	this->generated=col.generated;
 	this->parent_rel=col.parent_rel;
 	this->sequence=col.sequence;
 	this->identity_type=col.identity_type;

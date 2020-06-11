@@ -25,8 +25,8 @@ CONFIG(debug, debug|release): SUBDIRS += tests
 # Include the plugins subprojects only if exists
 PLUGINS_SRC_ROOT=$$PWD/plugins/plugins.pro
 !exists($$PLUGINS_SRC_ROOT) {
-    warning("Plugins subproject $$PLUGINS_SRC_ROOT wasn't found! pgModeler will be build without plugins.")
-    warning("Make sure to clone https://github.com/pgmodeler/plugins inside pgModeler's root folder and rerun qmake.")
+    warning("The subproject $$PLUGINS_SRC_ROOT wasn't found! pgModeler will be build without plugins.")
+    warning("If you want to compile pgModeler with plugins make sure to clone https://github.com/pgmodeler/plugins inside pgModeler's root folder and rerun qmake.")
 }
 exists($$PLUGINS_SRC_ROOT) {
    SUBDIRS += plugins
@@ -54,3 +54,6 @@ doc.files = README.md CHANGELOG.md LICENSE RELEASENOTES.md
 doc.path = $$DOCDIR
 
 INSTALLS += samples schemas lang conf doc
+
+CONFIG += qt \
+	qt

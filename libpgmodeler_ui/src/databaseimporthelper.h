@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2019 - Raphael Araújo e Silva <raphael@pgmodeler.io>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -87,15 +87,9 @@ class DatabaseImportHelper: public QObject {
 		it the oid of parent table */
 		map<unsigned, vector<unsigned>> column_oids;
 		
-		//! \brief Stores the oid of objects sucessfully created
-		vector<unsigned> created_objs;
-		
 		//! \brief Stores the selected objects oids to be imported
 		vector<unsigned> creation_order;
-		
-		//! \brief Stores the creation order for constraints
-		vector<unsigned> constr_creation_order;
-		
+			
 		//! \brief Stores the user defined objects attributes
 		map<unsigned, attribs_map> user_objs;
 		
@@ -104,7 +98,13 @@ class DatabaseImportHelper: public QObject {
 		
 		//! \brief Stores all defined types attributes
 		map<unsigned, attribs_map> types;
-		
+
+		//! \brief Stores all constraints attributes
+		vector<attribs_map> constraints;
+
+		//! \brief Stores the OIDs of the objects successfully created
+		vector<unsigned> created_objs;
+
 		//! \brief Stores all selected columns attributes
 		map<unsigned, map<unsigned, attribs_map>> columns;
 		
@@ -164,17 +164,17 @@ class DatabaseImportHelper: public QObject {
 		void createForeignServer(attribs_map &attribs);
 		void createUserMapping(attribs_map &attribs);
 		void createForeignTable(attribs_map &attribs);
-		void __createTableInheritances(void);
-		void createTableInheritances(void);
-		void createTablePartitionings(void);
-		void destroyDetachedColumns(void);
+		void __createTableInheritances();
+		void createTableInheritances();
+		void createTablePartitionings();
+		void destroyDetachedColumns();
 
 		/*! \brief Create the columns of the table represented by the passed attributes.
 		 * The inh_cols is used to hold the id of inherited columns to be managed later */
 		void createColumns(attribs_map &attribs, vector<unsigned> &inh_cols);
 
 		//! \brief Tries to assign imported sequences that are related to nextval() calls used in columns default values
-		void assignSequencesToColumns(void);
+		void assignSequencesToColumns();
 		
 		/*! \brief Retrieve the schema qualified name for the specified object oid. If the oid represents a function
 		or operator the signature can be retrieved instead by using the boolean parameter */
@@ -212,7 +212,7 @@ class DatabaseImportHelper: public QObject {
 		void loadObjectXML(ObjectType obj_type, attribs_map &attribs);
 		
 		//! \brief Clears the vectors and maps used in the import process
-		void resetImportParameters(void);
+		void resetImportParameters();
 		
 		//! \brief Return a string containing all attributes and their values in a formatted way
 		QString dumpObjectAttributes(attribs_map &attribs);
@@ -225,7 +225,7 @@ class DatabaseImportHelper: public QObject {
 		
 		/*! \brief Closes all connections opened by this object including the catalog connection.
 	Once this method is called the user must call setConnection() again or the import will fail */
-		void closeConnection(void);
+		void closeConnection();
 		
 		//! \brief Set the current database to work on
 		void setCurrentDatabase(const QString &dbname);
@@ -237,13 +237,13 @@ class DatabaseImportHelper: public QObject {
 		void setImportOptions(bool import_sys_objs, bool import_ext_objs, bool auto_resolve_deps, bool ignore_errors, bool debug_mode, bool rand_rel_colors, bool update_fk_rels);
 		
 		//! \brief Returns the last system OID value for the current database
-		unsigned getLastSystemOID(void);
+		unsigned getLastSystemOID();
 		
 		//! \brief Returns the current database in which the helper is working on
-		QString getCurrentDatabase(void);
+		QString getCurrentDatabase();
 		
 		//! \brief Returns a copy of the current catalog instance being used
-		Catalog getCatalog(void);
+		Catalog getCatalog();
 		
 		/*! \brief Returns an attribute map for the specified object type. The parameters "schema" and "table"
 				must be used only when retrieving table children objects.
@@ -265,15 +265,18 @@ class DatabaseImportHelper: public QObject {
 				before assign the connection to this class. */
 		vector<attribs_map> getObjects(vector<ObjectType> obj_type, const QString &schema=QString(), const QString &table=QString(), attribs_map extra_attribs=attribs_map());
 
-		void retrieveSystemObjects(void);
-		void retrieveUserObjects(void);
+		void retrieveSystemObjects();
+		void retrieveUserObjects();
 		void retrieveTableColumns(const QString &sch_name, const QString &tab_name, vector<unsigned> col_ids={});
-		void createObjects(void);
-		void createConstraints(void);
-		void createPermissions(void);
-		void swapSequencesTablesIds(void);
-		void updateFKRelationships(void);
+		void createObjects();
+		void createConstraints();
+		void createPermissions();
+		void swapSequencesTablesIds();
+		void updateFKRelationships();
 		
+		//! \brief Returns the currently configured object filters in the internal catalog instance
+		map<ObjectType, QStringList> getObjectFilters();
+
 	signals:
 		//! \brief This singal is emitted whenever the export progress changes
 		void s_progressUpdated(int progress, QString msg, ObjectType obj_type=ObjectType::BaseObject);
@@ -282,16 +285,17 @@ class DatabaseImportHelper: public QObject {
 		void s_importFinished(Exception e=Exception());
 		
 		//! \brief This signal is emited when the import has been cancelled
-		void s_importCanceled(void);
+		void s_importCanceled();
 		
 		//! \brief This signal is emited when the import has encountered a critical error (only in thread mode)
 		void s_importAborted(Exception e);
 		
 	protected slots:
-		void cancelImport(void);
+		void cancelImport();
 		
 	public slots:
-		void importDatabase(void);
+		void importDatabase();
+		void setObjectFilters(QStringList filter, bool only_matching, QStringList force_tab_obj_types = {});
 		
 		friend class DatabaseImportForm;
 		friend class ModelDatabaseDiffForm;

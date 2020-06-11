@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2019 - Raphael Araújo e Silva <raphael@pgmodeler.io>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -73,7 +73,7 @@ BaseRelationship::BaseRelationship(unsigned rel_type, BaseTable *src_tab, BaseTa
 	}
 }
 
-void BaseRelationship::configureRelationship(void)
+void BaseRelationship::configureRelationship()
 {
 	obj_type=ObjectType::BaseRelationship;
 
@@ -157,13 +157,13 @@ void BaseRelationship::configureRelationship(void)
 		throw Exception(ErrorCode::AllocationObjectInvalidType,__PRETTY_FUNCTION__,__FILE__,__LINE__);
 }
 
-BaseRelationship::~BaseRelationship(void)
+BaseRelationship::~BaseRelationship()
 {
 	disconnectRelationship();
 
 	//Unallocates the labels
 	for(unsigned i=0; i<3; i++)
-		if(lables[i]) delete(lables[i]);
+		if(lables[i]) delete lables[i];
 }
 
 void BaseRelationship::setName(const QString &name)
@@ -231,14 +231,25 @@ void BaseRelationship::setMandatoryTable(unsigned table_id, bool value)
 		{
 			if((table_id==SrcTable && dynamic_cast<Table *>(src_table)->isReferTableOnForeignKey(dynamic_cast<Table *>(dst_table))) ||
 				 (!isSelfRelationship() && table_id==DstTable && dynamic_cast<Table *>(dst_table)->isReferTableOnForeignKey(dynamic_cast<Table *>(src_table))))
-				aux=QString("n");
+			{
+				if(table_id == SrcTable && canSimulateRelationship11())
+					aux = "1";
+				else
+					aux = "n";
+			}
 			else
-				aux=QString("1");
+				aux = "1";
+
+			if((table_id == DstTable && dst_mandatory) ||
+				 (table_id == SrcTable && src_mandatory))
+				aux.prepend("1:");
+			else
+				aux.prepend("0:");
 
 			lables[label_id]->setComment(aux);
 		}
 		else if(rel_type==RelationshipNn)
-			lables[label_id]->setComment(QString("n"));
+			lables[label_id]->setComment("n");
 
 		lables[label_id]->setModified(true);
 	}
@@ -247,19 +258,19 @@ void BaseRelationship::setMandatoryTable(unsigned table_id, bool value)
 BaseTable *BaseRelationship::getTable(unsigned table_id)
 {
 	if(table_id==SrcTable)
-		return(src_table);
+		return src_table;
 	else if(table_id==DstTable)
-		return(dst_table);
+		return dst_table;
 	else
-		return(nullptr);
+		return nullptr;
 }
 
 bool BaseRelationship::isTableMandatory(unsigned table_id)
 {
 	if(table_id==SrcTable)
-		return(src_mandatory);
+		return src_mandatory;
 	else
-		return(dst_mandatory);
+		return dst_mandatory;
 }
 
 void BaseRelationship::setConnected(bool value)
@@ -282,7 +293,7 @@ void BaseRelationship::setConnected(bool value)
 	}
 }
 
-void BaseRelationship::disconnectRelationship(void)
+void BaseRelationship::disconnectRelationship()
 {
 	if(connected)
 	{
@@ -291,7 +302,7 @@ void BaseRelationship::disconnectRelationship(void)
 	}
 }
 
-void BaseRelationship::connectRelationship(void)
+void BaseRelationship::connectRelationship()
 {
 	if(!connected)
 	{
@@ -303,28 +314,28 @@ void BaseRelationship::connectRelationship(void)
 Textbox *BaseRelationship::getLabel(unsigned label_id)
 {
 	if(label_id<=RelNameLabel)
-		return(lables[label_id]);
+		return lables[label_id];
 
 	//Raises an error when the label id is invalid
 	throw Exception(ErrorCode::RefLabelInvalidIndex,__PRETTY_FUNCTION__,__FILE__,__LINE__);
 }
 
-unsigned BaseRelationship::getRelationshipType(void)
+unsigned BaseRelationship::getRelationshipType()
 {
-	return(rel_type);
+	return rel_type;
 }
 
-bool BaseRelationship::isRelationshipConnected(void)
+bool BaseRelationship::isRelationshipConnected()
 {
-	return(connected);
+	return connected;
 }
 
-bool BaseRelationship::isSelfRelationship(void)
+bool BaseRelationship::isSelfRelationship()
 {
-	return(dst_table==src_table);
+	return (dst_table==src_table);
 }
 
-void BaseRelationship::setRelationshipAttributes(void)
+void BaseRelationship::setRelationshipAttributes()
 {
 	unsigned count, i;
 	QString str_aux,
@@ -379,12 +390,12 @@ QString BaseRelationship::getCachedCode(unsigned def_type)
 			 (def_type==SchemaParser::XmlDefinition  && !cached_reduced_code.isEmpty())))
 	{
 		if(def_type==SchemaParser::XmlDefinition  && !cached_reduced_code.isEmpty())
-			return(cached_reduced_code);
+			return cached_reduced_code;
 		else
-			return(cached_code[def_type]);
+			return cached_code[def_type];
 	}
 	else
-		return(QString());
+		return QString();
 }
 
 void BaseRelationship::setReferenceForeignKey(Constraint *ref_fk)
@@ -394,24 +405,60 @@ void BaseRelationship::setReferenceForeignKey(Constraint *ref_fk)
 	this->reference_fk = ref_fk;
 }
 
-Constraint *BaseRelationship::getReferenceForeignKey(void)
+Constraint *BaseRelationship::getReferenceForeignKey()
 {
-	return(reference_fk);
+	return reference_fk;
+}
+
+bool BaseRelationship::canSimulateRelationship11()
+{
+	if(rel_type != BaseRelationship::RelationshipFk)
+		return false;
+
+	bool fake_rel11 = false;
+	PhysicalTable *table = dynamic_cast<PhysicalTable *>(getTable(BaseRelationship::SrcTable));
+
+	if(table)
+	{
+		Constraint *constr = nullptr, *uq_constr = nullptr;
+
+		for(unsigned idx = 0; idx < table->getConstraintCount() && !fake_rel11; idx++)
+		{
+			constr = table->getConstraint(idx);
+
+			if(constr->getConstraintType() == ConstraintType::ForeignKey)
+			{
+				for(unsigned idx1 = 0; idx1 < table->getConstraintCount(); idx1++)
+				{
+					uq_constr = table->getConstraint(idx1);
+
+					if(uq_constr->getConstraintType() == ConstraintType::Unique &&
+						 uq_constr->isColumnsExist(constr->getColumns(Constraint::SourceCols), Constraint::SourceCols))
+					{
+						fake_rel11 = true;
+						break;
+					}
+				}
+			}
+		}
+	}
+
+	return fake_rel11;
 }
 
 QString BaseRelationship::getCodeDefinition(unsigned def_type)
 {
 	QString code_def=getCachedCode(def_type);
-	if(!code_def.isEmpty()) return(code_def);
+	if(!code_def.isEmpty()) return code_def;
 
 	if(def_type==SchemaParser::SqlDefinition)
 	{
 		if(rel_type!=RelationshipFk)
-			return(QString());
+			return QString();
 		else
 		{
 			cached_code[def_type] = reference_fk->getCodeDefinition(SchemaParser::SqlDefinition);
-			return(cached_code[def_type]);
+			return cached_code[def_type];
 		}
 	}
 	else
@@ -424,7 +471,7 @@ QString BaseRelationship::getCodeDefinition(unsigned def_type)
 		if(!reduced_form)
 			cached_reduced_code.clear();
 
-		return(BaseObject::getCodeDefinition(SchemaParser::XmlDefinition,reduced_form));
+		return BaseObject::getCodeDefinition(SchemaParser::XmlDefinition,reduced_form);
 	}
 }
 
@@ -448,7 +495,7 @@ QPointF BaseRelationship::getLabelDistance(unsigned label_id)
 	if(label_id > RelNameLabel)
 		throw Exception(ErrorCode::RefObjectInvalidIndex,__PRETTY_FUNCTION__,__FILE__,__LINE__);
 
-	return(this->lables_dist[label_id]);
+	return this->lables_dist[label_id];
 }
 
 void BaseRelationship::setCustomColor(const QColor &color)
@@ -456,20 +503,20 @@ void BaseRelationship::setCustomColor(const QColor &color)
 	custom_color=color;
 }
 
-QColor BaseRelationship::getCustomColor(void)
+QColor BaseRelationship::getCustomColor()
 {
-	return(custom_color);
+	return custom_color;
 }
 
-void BaseRelationship::resetLabelsDistance(void)
+void BaseRelationship::resetLabelsDistance()
 {
 	for(unsigned i=0; i < 3; i++)
 		this->setLabelDistance(i, QPointF(DNaN,DNaN));
 }
 
-vector<QPointF> BaseRelationship::getPoints(void)
+vector<QPointF> BaseRelationship::getPoints()
 {
-	return(points);
+	return points;
 }
 
 void BaseRelationship::operator = (BaseRelationship &rel)
@@ -480,6 +527,7 @@ void BaseRelationship::operator = (BaseRelationship &rel)
 	this->dst_table=rel.dst_table;
 	this->rel_type=rel.rel_type;
 	this->points=rel.points;
+	this->custom_color=rel.custom_color;
 
 	for(int i=0; i < 3; i++)
 	{
@@ -500,22 +548,22 @@ void BaseRelationship::operator = (BaseRelationship &rel)
 	this->setMandatoryTable(DstTable, rel.dst_mandatory);
 }
 
-QString BaseRelationship::getRelTypeAttribute(void)
+QString BaseRelationship::getRelTypeAttribute()
 {
 	switch(rel_type)
 	{
-		case Relationship11: return(Attributes::Relationship11);
-		case Relationship1n: return(Attributes::Relationship1n);
-		case RelationshipNn: return(Attributes::RelationshipNn);
-		case RelationshipGen: return(Attributes::RelationshipGen);
-		case RelationshipPart: return(Attributes::RelationshipPart);
-		case RelationshipFk: return(Attributes::RelationshipFk);
+		case Relationship11: return Attributes::Relationship11;
+		case Relationship1n: return Attributes::Relationship1n;
+		case RelationshipNn: return Attributes::RelationshipNn;
+		case RelationshipGen: return Attributes::RelationshipGen;
+		case RelationshipPart: return Attributes::RelationshipPart;
+		case RelationshipFk: return Attributes::RelationshipFk;
 		default:
 		{
 			if(src_table->getObjectType()==ObjectType::View)
-				return(Attributes::RelationshipTabView);
+				return Attributes::RelationshipTabView;
 			else
-				return(Attributes::RelationshipDep);
+				return Attributes::RelationshipDep;
 		}
 	}
 }
@@ -524,25 +572,25 @@ QString BaseRelationship::getRelationshipTypeName(unsigned rel_type, bool is_vie
 {
   switch(rel_type)
   {
-		case Relationship11: return(trUtf8("One-to-one"));
-		case Relationship1n: return(trUtf8("One-to-many"));
-		case RelationshipNn: return(trUtf8("Many-to-many"));
-		case RelationshipGen: return(trUtf8("Inheritance"));
-		case RelationshipPart: return(trUtf8("Partitioning"));
-		case RelationshipFk: return(trUtf8("FK relationship"));
+		case Relationship11: return tr("One-to-one");
+		case Relationship1n: return tr("One-to-many");
+		case RelationshipNn: return tr("Many-to-many");
+		case RelationshipGen: return tr("Inheritance");
+		case RelationshipPart: return tr("Partitioning");
+		case RelationshipFk: return tr("FK relationship");
 	  default:
 		{
 			if(is_view)
-				return(trUtf8("Dependency"));
+				return tr("Dependency");
 			else
-				return(trUtf8("Copy"));
+				return tr("Copy");
 		}
   }
 }
 
-QString BaseRelationship::getRelationshipTypeName(void)
+QString BaseRelationship::getRelationshipTypeName()
 {
-  return(getRelationshipTypeName(rel_type, src_table->getObjectType()==ObjectType::View));
+	return getRelationshipTypeName(rel_type, src_table->getObjectType()==ObjectType::View);
 }
 
 void BaseRelationship::setCodeInvalidated(bool value)

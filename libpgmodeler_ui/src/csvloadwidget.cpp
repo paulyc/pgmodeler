@@ -1,7 +1,7 @@
 /*
 # PostgreSQL Database Modeler (pgModeler)
 #
-# Copyright 2006-2019 - Raphael Araújo e Silva <raphael@pgmodeler.io>
+# Copyright 2006-2020 - Raphael Araújo e Silva <raphael@pgmodeler.io>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -24,21 +24,21 @@
 CsvLoadWidget::CsvLoadWidget(QWidget * parent, bool cols_in_first_row) : QWidget(parent)
 {
 	setupUi(this);
+
+	file_sel = new FileSelectorWidget(this);
+	file_sel->setFileMode(QFileDialog::ExistingFile);
+	file_sel->setFileDialogTitle(tr("Load CSV file"));
+	file_sel->setMimeTypeFilters({"text/csv", "application/octet-stream"});
+	load_csv_grid->addWidget(file_sel, 0, 1, 1, 8);
+
 	separator_edt->setVisible(false);
 
-	if(!cols_in_first_row)
+	if(cols_in_first_row)
 	{
-		col_names_ht=new HintTextWidget(col_names_hint, this);
-		col_names_ht->setText(col_names_chk->statusTip());
-	}
-	else
-	{
-		col_names_ht=nullptr;
 		col_names_chk->setVisible(false);
 		col_names_chk->setChecked(true);
 	}
 
-	connect(select_file_tb, SIGNAL(clicked(bool)), this, SLOT(selectCsvFile()));
 	connect(txt_delim_chk, SIGNAL(toggled(bool)), txt_delim_edt, SLOT(setEnabled(bool)));
 	connect(load_btn, SIGNAL(clicked(bool)), this, SLOT(loadCsvFile()));
 
@@ -46,38 +46,17 @@ CsvLoadWidget::CsvLoadWidget(QWidget * parent, bool cols_in_first_row) : QWidget
 			separator_edt->setVisible(separator_cmb->currentIndex() == separator_cmb->count()-1);
 	});
 
-	connect(file_edt, &QLineEdit::textChanged, [&](){
-		load_btn->setEnabled(!file_edt->text().isEmpty());
-	});
+	connect(file_sel, SIGNAL(s_selectorChanged(bool)), load_btn, SLOT(setEnabled(bool)));
 }
 
-QStringList CsvLoadWidget::getCsvColumns(void)
+QStringList CsvLoadWidget::getCsvColumns()
 {
-	return(csv_columns);
+	return csv_columns;
 }
 
-QList<QStringList> CsvLoadWidget::getCsvRows(void)
+QList<QStringList> CsvLoadWidget::getCsvRows()
 {
-	return(csv_rows);
-}
-
-void CsvLoadWidget::selectCsvFile(void)
-{
-	QFileDialog file_dlg;
-
-	file_dlg.setWindowTitle(trUtf8("Load CSV file"));
-	file_dlg.setModal(true);
-	file_dlg.setNameFilter(trUtf8("Comma-separted values (*.csv);;All files (*.*)"));
-
-	if(file_dlg.exec()==QFileDialog::Accepted)
-	{
-		QString file;
-
-		if(!file_dlg.selectedFiles().isEmpty())
-			file = file_dlg.selectedFiles().at(0);
-
-		file_edt->setText(file);
-	}
+	return csv_rows;
 }
 
 QList<QStringList> CsvLoadWidget::loadCsvFromBuffer(const QString &csv_buffer, const QString &separator, const QString &text_delim, bool cols_in_first_row, QStringList &csv_cols)
@@ -157,18 +136,18 @@ QList<QStringList> CsvLoadWidget::loadCsvFromBuffer(const QString &csv_buffer, c
 		}
 	}
 
-	return (csv_rows);
+	return csv_rows;
 }
 
-void CsvLoadWidget::loadCsvFile(void)
+void CsvLoadWidget::loadCsvFile()
 {
 	QFile file;
 	QString csv_buffer;
 
-	file.setFileName(file_edt->text());
+	file.setFileName(file_sel->getSelectedFile());
 
 	if(!file.open(QFile::ReadOnly))
-		throw Exception(Exception::getErrorMessage(ErrorCode::FileDirectoryNotAccessed).arg(file_edt->text()),
+		throw Exception(Exception::getErrorMessage(ErrorCode::FileDirectoryNotAccessed).arg(file_sel->getSelectedFile()),
 										ErrorCode::FileDirectoryNotAccessed,__PRETTY_FUNCTION__,__FILE__,__LINE__);
 
 	csv_columns.clear();
@@ -183,15 +162,15 @@ void CsvLoadWidget::loadCsvFile(void)
 																 col_names_chk->isChecked(), csv_columns);
 	}
 
-	file_edt->clear();
+	file_sel->clearSelector();
 	emit s_csvFileLoaded();
 }
 
-QString CsvLoadWidget::getSeparator(void)
+QString CsvLoadWidget::getSeparator()
 {
 	QStringList separators={ QString(";"), QString(","), QString(" "), QString("\t") };
 	separators += (separator_edt->text().isEmpty() ? QString(";") : separator_edt->text());
-	return(separators[separator_cmb->currentIndex()]);
+	return separators[separator_cmb->currentIndex()];
 }
 
 QString CsvLoadWidget::getCsvBuffer(QString separator, QString line_break)
@@ -212,12 +191,12 @@ QString CsvLoadWidget::getCsvBuffer(QString separator, QString line_break)
 
 	buffer+=rows.join(line_break);
 
-	return(buffer);
+	return buffer;
 }
 
-bool CsvLoadWidget::isColumnsInFirstRow(void)
+bool CsvLoadWidget::isColumnsInFirstRow()
 {
-	return(col_names_chk->isChecked());
+	return col_names_chk->isChecked();
 }
 
 void CsvLoadWidget::loadCsvBuffer(const QString csv_buffer, const QString &separator, const QString &text_delim, bool cols_in_first_row)

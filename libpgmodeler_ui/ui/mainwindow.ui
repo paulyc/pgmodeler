@@ -10,13 +10,13 @@
     <x>0</x>
     <y>0</y>
     <width>1068</width>
-    <height>708</height>
+    <height>768</height>
    </rect>
   </property>
   <property name="minimumSize">
    <size>
-    <width>1000</width>
-    <height>500</height>
+    <width>1024</width>
+    <height>768</height>
    </size>
   </property>
   <property name="mouseTracking">
@@ -859,6 +859,7 @@
    <addaction name="action_import"/>
    <addaction name="action_export"/>
    <addaction name="action_diff"/>
+   <addaction name="action_fix"/>
    <addaction name="action_configuration"/>
   </widget>
   <widget class="QToolBar" name="control_tb">
@@ -914,8 +915,6 @@
    <addaction name="action_new_model"/>
    <addaction name="action_load_model"/>
    <addaction name="action_recent_models"/>
-   <addaction name="action_fix_model"/>
-   <addaction name="action_handle_metadata"/>
    <addaction name="action_save_model"/>
    <addaction name="action_save_as"/>
    <addaction name="action_print"/>
@@ -1374,7 +1373,10 @@
      <normaloff>:/icones/icones/fixobject.png</normaloff>:/icones/icones/fixobject.png</iconset>
    </property>
    <property name="text">
-    <string>&amp;Fix a model</string>
+    <string>&amp;Model's structure</string>
+   </property>
+   <property name="toolTip">
+    <string>Performs the model structure fix routine</string>
    </property>
   </action>
   <action name="action_update_found">
@@ -1383,7 +1385,7 @@
    </property>
    <property name="icon">
     <iconset resource="../res/resources.qrc">
-     <normaloff>:/icones/icones/atualizar.png</normaloff>:/icones/icones/atualizar.png</iconset>
+     <normaloff>:/icones/icones/update.png</normaloff>:/icones/icones/update.png</iconset>
    </property>
    <property name="text">
     <string>New version found!</string>
@@ -1395,7 +1397,7 @@
   <action name="action_check_update">
    <property name="icon">
     <iconset resource="../res/resources.qrc">
-     <normaloff>:/icones/icones/atualizar.png</normaloff>:/icones/icones/atualizar.png</iconset>
+     <normaloff>:/icones/icones/update.png</normaloff>:/icones/icones/update.png</iconset>
    </property>
    <property name="text">
     <string>&amp;Check for update</string>
@@ -1552,7 +1554,7 @@
     <string>Objects me&amp;tadata</string>
    </property>
    <property name="toolTip">
-    <string>Objects metadata</string>
+    <string>Perform the objects metadata handling</string>
    </property>
   </action>
   <action name="action_arrange_objects">
@@ -1588,7 +1590,7 @@
     <string>Toggle the compact view on the model(s)</string>
    </property>
   </action>
-  <action name="action_other_actions">
+  <action name="action_more_actions">
    <property name="icon">
     <iconset resource="../res/resources.qrc">
      <normaloff>:/icones/icones/moreactions.png</normaloff>:/icones/icones/moreactions.png</iconset>
@@ -1598,6 +1600,15 @@
    </property>
    <property name="toolTip">
     <string>Addition action over the model</string>
+   </property>
+  </action>
+  <action name="action_fix">
+   <property name="icon">
+    <iconset resource="../res/resources.qrc">
+     <normaloff>:/icones/icones/fix.png</normaloff>:/icones/icones/fix.png</iconset>
+   </property>
+   <property name="text">
+    <string>Fix</string>
    </property>
   </action>
  </widget>
